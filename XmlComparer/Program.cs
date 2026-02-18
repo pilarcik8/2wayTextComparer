@@ -1,34 +1,42 @@
-﻿using System.IO.Enumeration;
-using System.Xml.Linq;
-using System.Xml.Serialization;
+﻿using System.Xml.Linq;
 
-bool ordersMatter = true; // Set to false if order does not matter
+bool ordersMatters = true; // Set to false if order does not matter
 
 string projectDir = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, @"..\..\..\"));
 string pathMergedXml = Path.Combine(projectDir, @"inputs\0\result0.xml");
-string pathExpectedXML = Path.Combine(projectDir, @"inputs\0\expeted0.xml");
+string pathExpectedXML = Path.Combine(projectDir, @"inputs\0\base0.xml");
 
-if (!validFilesXLM(pathMergedXml, pathExpectedXML)) return;
 
-// Prepis po riadoch
-string[] linesMer, linesExp;
-
-try
+void Compare(string pairedXml, string expectedXML, bool ordersDoesMatters)
 {
-    linesMer = File.ReadAllLines(pathMergedXml);
-    linesExp = File.ReadAllLines(pathExpectedXML);
-} catch (Exception ex) { 
-    Console.WriteLine($"{ex.Message}"); 
-    return; 
+    if (!validFilesXLM(pathMergedXml, pathExpectedXML)) return;
+
+    // Prepis po riadoch
+    string[] linesMer, linesExp;
+
+    try
+    {
+        linesMer = File.ReadAllLines(pathMergedXml);
+        linesExp = File.ReadAllLines(pathExpectedXML);
+    } catch (Exception ex) { 
+        Console.WriteLine($"{ex.Message}"); 
+        return; 
+    }
+
+    // orezáva biele znaky a odstraňuje prázdné riadky
+    string[] expected = linesExp.Select(line => line.Trim()).Where(line => line != "").ToArray();
+    string[] merged = linesMer.Select(line => line.Trim()).Where(line => line != "").ToArray();
+
+    if (ordersDoesMatters)
+    {
+        checkOrdered(expected, merged);
+    } 
+    else {
+        checkUnordered(expected, merged);
+    }
 }
 
-// orezáva biele znaky a odstraňuje prázdné riadky
-string[] expected = linesExp.Select(line => line.Trim()).Where(line => line != "").ToArray();
-string[] merged = linesMer.Select(line => line.Trim()).Where(line => line != "").ToArray();
-
-
-
-if (ordersMatter)
+void checkOrdered(string[] expected, string[] merged)
 {
     if (areEqualOrderMatters(expected, merged))
     {
@@ -41,7 +49,9 @@ if (ordersMatter)
         Console.WriteLine($"Soubory nejsou identické. Přidané řádky: {addedLines}, Chybějící řádky: {missingLines}");
         double rightPositionLinePerc = percentageInRightPosition(expected, merged);
     }
-} else
+}
+
+void checkUnordered(string[] expected, string[] merged)
 {
     if (areEqualOrderDoesNotMatter(expected, merged))
     {
@@ -55,7 +65,7 @@ if (ordersMatter)
     }
 }
 
-    double percentageInRightPosition(string[] expected, string[] comparedTo)
+double percentageInRightPosition(string[] expected, string[] comparedTo)
     {
         int loops = Math.Min(expected.Length, comparedTo.Length);
         int rightPositionCount = 0;
@@ -81,7 +91,7 @@ bool validFilesXLM(string pathGeneratedXML, string pathMergerdedXML)
         Console.WriteLine($"File not found: {pathExpectedXML}");
         return false;
     }
-
+    
     if (!IsValidXml(pathExpectedXML)) // snad sa to nestane, ale pre istotu
     {
         Console.WriteLine("Generovaný výsledok je neplatný XML súbor.");
@@ -108,14 +118,14 @@ bool areEqualOrderDoesNotMatter(string[] a, string[] b)
     return setA.SetEquals(setB);
 }
 
-bool IsValidXml(string xml)
+bool IsValidXml(string path)
 {
     try
     {
-        XDocument.Parse(xml);
+        XDocument.Load(path);
         return true;
     }
-    catch
+    catch (System.Xml.XmlException)
     {
         return false;
     }
