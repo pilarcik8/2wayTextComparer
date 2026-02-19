@@ -1,8 +1,15 @@
-﻿using System.Xml.Linq;
+﻿using System;
+using System.IO;
+using System.Linq;
+using System.Collections.Generic;
+using System.Xml.Linq;
 
 
 string projectDir = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, @"..\..\..\"));
 var percCorrectness = new List<double>();
+var addedCounts = new List<int>();
+var removedCounts = new List<int>();
+var wrongPositionCounts = new List<int>();
 int index = 0;
 int countNotValidXMLFiles = 0;
 int countFileCoparitions = 0;
@@ -44,6 +51,32 @@ while (true)
     double percent = Compare(merged, expected, ordersMatters);
     percCorrectness.Add(percent);
 
+    // zisti pridane / odstranene elementy (riadkovo)
+    int added = merged.Except(expected).Count();      // v merged, ale nie v expected
+    int removed = expected.Except(merged).Count();    // v expected, ale nie v merged
+    addedCounts.Add(added);
+    removedCounts.Add(removed);
+
+    // zisti pocet prvkov, ktoré su prítomné ale na nesprávnej polohe (len keď záleží na poradí)
+    int rightPositionCount = 0;
+    int loops = Math.Min(expected.Length, merged.Length);
+    for (int i = 0; i < loops; i++)
+    {
+        if (expected[i] == merged[i])
+            rightPositionCount++;
+    }
+    int commonCount = expected.Intersect(merged).Count();
+    int wrongPosition = 0;
+    if (ordersMatters)
+    {
+        wrongPosition = Math.Max(0, commonCount - rightPositionCount);
+    }
+    else
+    {
+        wrongPosition = 0;
+    }
+    wrongPositionCounts.Add(wrongPosition);
+
     index++;
 }
 if (countFileCoparitions == 0)
@@ -55,10 +88,15 @@ if (countFileCoparitions == 0)
 Console.WriteLine($"Porovnaných {countFileCoparitions} súborov, z toho {countNotValidXMLFiles} nebolo validních XML.");
 
 // bezpečne získať priemer (ak žiadne porovnania, priemer = 0)
-double average = percCorrectness.Average();
+double average = percCorrectness.Count > 0 ? percCorrectness.Average() : 0.0;
+int totalAdded = addedCounts.Sum();
+int totalRemoved = removedCounts.Sum();
+int totalWrongPosition = wrongPositionCounts.Sum();
 Console.WriteLine($"Percento správnosti: {average}%");
+Console.WriteLine($"Súhrn pridanych/odstranených elementov -> Pridané: {totalAdded}, Chýbajúce: {totalRemoved}, Nesprávna poloha: {totalWrongPosition}");
 
 // vytvorenie súboru: prvý riadok = priemer, potom každý výsledok na samostatnom riadku
+// nakoniec pridaj súhrnný riadok vo formáte: "Priemer% | Pocet Pridanych | Pocet Navyše | Pocet NespravnejPolohe"
 string outputsDir = Path.Combine(projectDir, "outputs");
 Directory.CreateDirectory(outputsDir);
 string resultsFile = Path.Combine(outputsDir, "results.txt");
@@ -68,6 +106,9 @@ var outputLines = new List<string>
     $"{average:F2}%"
 };
 outputLines.AddRange(percCorrectness.Select(p => $"{p:F2}%"));
+
+// pridať súhrnný riadok presne v požadovanom formáte s novým stĺpcom pre nesprávnu polohu
+outputLines.Add($"{average:F2}% | {totalAdded} | {totalRemoved} | {totalWrongPosition}");
 
 File.WriteAllLines(resultsFile, outputLines);
 Console.WriteLine($"Výsledky zapísané do: {resultsFile}");
@@ -98,7 +139,7 @@ string UserInputDirToFiles()
 {
     Console.WriteLine("V priečinku majte očíslované priečinky od 0");
     Console.WriteLine("V očísloslovanom priečinku majte súbory expectedResult'číslo iterácie'.xml a mergedResult'číslo iterácie.xml'");
-    Console.WriteLine("Prvý priečinok by mal: '0/mergedResult0.xml'. Súbor 'expectedResult0.xml' by mal byť s ostantnými týmtito súbormi v predokovi adresáta '0'");
+    Console.WriteLine("Prvý priečinok by mal: '0/mergedResult0.xml'. Súbor 'expectedResult0.xml' by mal byť s ostatnými týmito súbormi v predkovi adresára '0'");
     Console.WriteLine("A tak ďalej... Ak sa priečinok alebo súbor z danej iterácie nenájde, program končí.");
     Console.WriteLine("---------------------------------------------------------------------------------------------------------------");
     Console.WriteLine("Vložte absolútnu cestu k priečinku so súbormi");
@@ -192,12 +233,12 @@ bool FilesExists(string pathMergedXml, string pathExpectedXML)
 {
     if (!File.Exists(pathMergedXml))
     {
-        Console.WriteLine($"File not found: {pathMergedXml}");
+        //Console.WriteLine($"File not found: {pathMergedXml}");
         return false;
     }
     if (!File.Exists(pathExpectedXML))
     {
-        Console.WriteLine($"File not found: {pathExpectedXML}");
+        //Console.WriteLine($"File not found: {pathExpectedXML}");
         return false;
     }
     return true;
