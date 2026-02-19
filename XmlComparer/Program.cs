@@ -1,23 +1,18 @@
-﻿using System;
-using System.IO;
-using System.Linq;
-using System.Collections.Generic;
-using System.Xml.Linq;
+﻿using System.Xml.Linq;
 
 
-string projectDir = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, @"..\..\..\")); 
-
+string projectDir = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, @"..\..\..\"));
+var percCorrectness = new List<double>();
 int index = 0;
 int countNotValidXMLFiles = 0;
 int countFileCoparitions = 0;
 
 bool ordersMatters = UserAnswerOrderMatters();
-var percCorrectness = new List<double>();
-
+string pathToFiles = UserInputDirToFiles();
 while (true)
 {
-    string pathMergedXml = Path.Combine(projectDir, $@"inputs\{index}\result{index}.xml");
-    string pathExpectedXML = Path.Combine(projectDir, $@"inputs\expected{index}.xml");
+    string pathMergedXml = Path.Combine(pathToFiles, $"mergedResult{index}.xml");
+    string pathExpectedXML = Path.Combine(pathToFiles, index.ToString(), $"expectedResult{index}.xml");
 
     if (!FilesExists(pathMergedXml, pathExpectedXML)) break; //vypne sa ked uz nenajde dvojicu suborov s indexom
 
@@ -99,6 +94,45 @@ bool UserAnswerOrderMatters()
     return false;    
 }
 
+string UserInputDirToFiles()
+{
+    Console.WriteLine("V priečinku majte očíslované priečinky od 0");
+    Console.WriteLine("V očísloslovanom priečinku majte súbory expectedResult'číslo iterácie'.xml a mergedResult'číslo iterácie.xml'");
+    Console.WriteLine("Prvý priečinok by mal: '0/mergedResult0.xml'. Súbor 'expectedResult0.xml' by mal byť s ostantnými týmtito súbormi v predokovi adresáta '0'");
+    Console.WriteLine("A tak ďalej... Ak sa priečinok alebo súbor z danej iterácie nenájde, program končí.");
+    Console.WriteLine("---------------------------------------------------------------------------------------------------------------");
+    Console.WriteLine("Vložte absolútnu cestu k priečinku so súbormi");
+
+    while (true)
+    {
+        string? input = Console.ReadLine();
+        if (string.IsNullOrWhiteSpace(input))
+        {
+            Console.WriteLine("Zadajte platnú cestu (nie prázdnu). Skúste znova:");
+            continue;
+        }
+
+        input = input.Trim().Trim('"');
+
+        try
+        {
+            string full = Path.GetFullPath(input);
+
+            if (!Directory.Exists(full))
+            {
+                Console.WriteLine($"Adresár neexistuje: {full}. Skontrolujte cestu a skúste znova:");
+                continue;
+            }
+
+            return full;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Neplatná cesta: {ex.Message}. Skúste znova:");
+        }
+    }
+}
+
 // Vrati % spravnosti XML
 double Compare(string[] linesMer, string[] linesExp, bool ordersDoesMatters)
 {
@@ -118,9 +152,6 @@ double CheckOrdered(string[] expected, string[] merged)
     }
     else
     {
-        //int addedLines = expected.Except(merged).Count();
-        //int missingLines = merged.Except(expected).Count();
-        //Console.WriteLine($"Soubory nejsou identické. Přidané řádky: {addedLines}, Chybějící řádky: {missingLines}");
         return PercentageInRightOrder(expected, merged);
     }
 }
@@ -132,9 +163,6 @@ double CheckUnordered(string[] expected, string[] merged)
         return 100.0;
     }
 
-    //int addedLines = expected.Except(merged).Count();
-    //int missingLines = merged.Except(expected).Count();
-    //Console.WriteLine($"Soubory nejsou identické. Přidané řádky: {addedLines}, Chybějící řádky: {missingLines}");
     return PercentageRight(expected, merged);
 
 }
