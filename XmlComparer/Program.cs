@@ -1,20 +1,23 @@
-﻿using System.Xml.Linq;
+﻿using System;
+using System.IO;
+using System.Linq;
+using System.Collections.Generic;
+using System.Xml.Linq;
 
 
-string projectDir = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, @"..\..\..\"));
+string projectDir = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, @"..\..\..\")); 
 
 int index = 0;
 int countNotValidXMLFiles = 0;
 int countFileCoparitions = 0;
 
 bool ordersMatters = UserAnswerOrderMatters();
-double[] percCorrectness = [];
-
+var percCorrectness = new List<double>();
 
 while (true)
 {
     string pathMergedXml = Path.Combine(projectDir, $@"inputs\{index}\result{index}.xml");
-    string pathExpectedXML = Path.Combine(projectDir, $@"inputs\expected.xml");
+    string pathExpectedXML = Path.Combine(projectDir, $@"inputs\expected{index}.xml");
 
     if (!FilesExists(pathMergedXml, pathExpectedXML)) break; //vypne sa ked uz nenajde dvojicu suborov s indexom
 
@@ -30,7 +33,6 @@ while (true)
     if (!IsValidXml(pathExpectedXML))
     {
         Console.Error.WriteLine("Veľký problém, XML generátor vytvoril nefungujúci XML");
-        // CLOSEFILE todo
         return;
     }
 
@@ -43,15 +45,46 @@ while (true)
         continue;
     }
 
+    // vypočítaj percento správnosti a ulož do zoznamu
+    double percent = Compare(merged, expected, ordersMatters);
+    percCorrectness.Add(percent);
+
     index++;
 }
+if (countFileCoparitions == 0)
+{
+    Console.WriteLine("Nenájdený žiaden pár súborov.");
+    return;
+}
+
+Console.WriteLine($"Porovnaných {countFileCoparitions} súborov, z toho {countNotValidXMLFiles} nebolo validních XML.");
+
+// bezpečne získať priemer (ak žiadne porovnania, priemer = 0)
+double average = percCorrectness.Average();
+Console.WriteLine($"Percento správnosti: {average}%");
+
+// vytvorenie súboru: prvý riadok = priemer, potom každý výsledok na samostatnom riadku
+string outputsDir = Path.Combine(projectDir, "outputs");
+Directory.CreateDirectory(outputsDir);
+string resultsFile = Path.Combine(outputsDir, "results.txt");
+
+var outputLines = new List<string>
+{
+    $"{average:F2}%"
+};
+outputLines.AddRange(percCorrectness.Select(p => $"{p:F2}%"));
+
+File.WriteAllLines(resultsFile, outputLines);
+Console.WriteLine($"Výsledky zapísané do: {resultsFile}");
+
 
 bool UserAnswerOrderMatters()
 {
     Console.WriteLine("Zaleží na poradí atribútov/elementov?");
     Console.WriteLine("Odpovedz: yes/no");
     string? input = "";
-    while (input != "yes" || input != "no")
+    // Cyklus pokračuje, dokiaľ nie je zadané "yes" alebo "no"
+    while (input != "yes" && input != "no")
     {
         input = Console.ReadLine();
         if (input == null)
