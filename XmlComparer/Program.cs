@@ -8,6 +8,7 @@ var addedElementCounts = new List<int>();
 var missingElementCounts = new List<int>();
 var wrongPositionCounts = new List<int>();
 var wrongValueCounts = new List<int>();
+var indexesWithMistakes = new List<int>();
 
 int index = 0;
 
@@ -79,27 +80,29 @@ while (true)
     {
         Console.Error.WriteLine("Nejaká chyba v porovnávaní, súbory nejsou stejné ale neidentifikovali jsme žádný rozdíl");
         countCorrectFiles++;
+        continue;
     }
-
+    // hodnoty a index pre vypis do výstupného súboru
     addedElementCounts.Add(addedCount);
     missingElementCounts.Add(missingCount);
     wrongValueCounts.Add(wrongValueCount);
     wrongPositionCounts.Add(wrongPositionCount);
+    indexesWithMistakes.Add(index);
 
     index++;
 }
 
 double averageCorrectness = countTotalFiles > 0 ? (double)countCorrectFiles / countTotalFiles * 100 : 0;
 
-string txtOutput = $"Porovnaných {countTotalFiles} súborov, z toho {countNotValidXMLFiles} nebolo validních XML a {countTotalFiles - countCorrectFiles} nebolo rovnakých ale boli valídne.\n" +
-    $"$\"Priemerná správnosť: {averageCorrectness}%\"\n\n";
+string txtOutput = $"\nPorovnaných {countTotalFiles} súborov, z toho \n{countNotValidXMLFiles} nebolo validních XML a \n{countTotalFiles - countCorrectFiles} boli rozdielne.\n" +
+    $"{averageCorrectness}% súborov boli rovnaké + validné XML súbory\n\n";
 
 for (int i = 0; i < addedElementCounts.Count; i++)
 {
     int sumMistakes = addedElementCounts[i] + missingElementCounts[i] + wrongValueCounts[i] + wrongPositionCounts[i];
     if (sumMistakes == 0) continue;
 
-    txtOutput += $"Súbor {i}: Přidané elementy: {addedElementCounts[i]}, Chybějící elementy: {missingElementCounts[i]}, Nesprávné hodnoty: {wrongValueCounts[i]}, Nesprávné pozice: {wrongPositionCounts[i]}\n";
+    txtOutput += $"Súbor {indexesWithMistakes[i]}: Přidané elementy: {addedElementCounts[i]}, Chybějící elementy: {missingElementCounts[i]}, Nesprávné hodnoty: {wrongValueCounts[i]}, Nesprávné pozice: {wrongPositionCounts[i]}\n";
 }
 Console.Write(txtOutput);
 File.WriteAllText(outputPath, txtOutput);
