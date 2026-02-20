@@ -4,22 +4,23 @@ using System.Linq;
 using System.Collections.Generic;
 using System.Xml.Linq;
 
-
-string projectDir = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, @"..\..\..\"));
-var percCorrectness = new List<double>();
-
 var addedElementCounts = new List<int>();
 var missingElementCounts = new List<int>();
 var wrongPositionCounts = new List<int>();
 var wrongValueCounts = new List<int>();
 
 int index = 0;
+
 int countNotValidXMLFiles = 0;
-int countFileCoparitions = 0;
+int countTotalFiles = 0;
 int countCorrectFiles = 0;
 
 bool ordersMatters = UserAnswerOrderMatters();
 string pathToFiles = UserInputDirToFiles();
+string outputFileName = UserAnswerOutputFileName();
+string projetDir = Directory.GetParent(Directory.GetCurrentDirectory()).Parent.Parent.FullName;
+string outputPath = Path.Combine(projetDir, "outputs",outputFileName);
+
 while (true)
 {
     string pathMergedXml = Path.Combine(pathToFiles, $"mergedResult{index}.xml");
@@ -38,7 +39,7 @@ while (true)
         return;
     }
 
-    countFileCoparitions++;
+    countTotalFiles++;
     if (!IsValidXml(pathMergedXml))
     {
         countNotValidXMLFiles++;
@@ -88,18 +89,20 @@ while (true)
     index++;
 }
 
-Console.WriteLine($"Porovnaných {countFileCoparitions} súborov, z toho {countNotValidXMLFiles} nebolo validních XML a {countFileCoparitions - countCorrectFiles} nebolo rovnakých ale boli valídne");
-double averageCorrectness = countFileCoparitions > 0 ? (double)countCorrectFiles / countFileCoparitions * 100 : 0;
-Console.WriteLine($"Priemerná správnosť: {averageCorrectness}%");
+double averageCorrectness = countTotalFiles > 0 ? (double)countCorrectFiles / countTotalFiles * 100 : 0;
+
+string txtOutput = $"Porovnaných {countTotalFiles} súborov, z toho {countNotValidXMLFiles} nebolo validních XML a {countTotalFiles - countCorrectFiles} nebolo rovnakých ale boli valídne.\n" +
+    $"$\"Priemerná správnosť: {averageCorrectness}%\"\n\n";
 
 for (int i = 0; i < addedElementCounts.Count; i++)
 {
-    if (addedElementCounts[i] == 0 && missingElementCounts[i] == 0 && wrongValueCounts[i] == 0 && wrongPositionCounts[i] == 0)
-    {
-        continue;
-    }
-    Console.WriteLine($"Súbor {i}: Přidané elementy: {addedElementCounts[i]}, Chybějící elementy: {missingElementCounts[i]}, Nesprávné hodnoty: {wrongValueCounts[i]}, Nesprávné pozice: {wrongPositionCounts[i]}");
+    int sumMistakes = addedElementCounts[i] + missingElementCounts[i] + wrongValueCounts[i] + wrongPositionCounts[i];
+    if (sumMistakes == 0) continue;
+
+    txtOutput += $"Súbor {i}: Přidané elementy: {addedElementCounts[i]}, Chybějící elementy: {missingElementCounts[i]}, Nesprávné hodnoty: {wrongValueCounts[i]}, Nesprávné pozice: {wrongPositionCounts[i]}\n";
 }
+Console.Write(txtOutput);
+File.WriteAllText(outputPath, txtOutput);
 
 bool UserAnswerOrderMatters()
 {
@@ -120,6 +123,24 @@ bool UserAnswerOrderMatters()
     if (input == "yes") return true;
 
     return false;    
+}
+
+string UserAnswerOutputFileName()
+{
+    Console.WriteLine("Zadajta meno súboru do ktorého chcete zapísať výsledok:");
+    string? input = "";
+    // Cyklus pokračuje, dokiaľ nie je zadané "yes" nebo "no"
+    while (input == "")
+    {
+        input = Console.ReadLine();
+        if (input == null)
+        {
+            input = "";
+            continue;
+        }
+        input = input.ToLower() + ".txt";
+    }
+    return input;
 }
 
 int[] GetAddedMissingWrongValueCounts(string[] expected, string[] merged)
@@ -196,27 +217,6 @@ string UserInputDirToFiles()
             Console.WriteLine($"Neplatná cesta: {ex.Message}. Skúste znova:");
         }
     }
-}
-
-double PercentageInRightOrder(string[] expected, string[] comparedTo)
-{
-    int loops = Math.Min(expected.Length, comparedTo.Length);
-    int rightPositionCount = 0;
-    for (int i = 0; i < loops; i++)
-    {
-        if (expected[i] == comparedTo[i])
-        {
-            rightPositionCount++;
-        }
-    }
-    return (double)rightPositionCount / expected.Length * 100;
-}
-
-double PercentageRight(string[] expected, string[] comparedTo)
-{
-    int correct = expected.Intersect(comparedTo).Count();
-
-    return (double)correct / expected.Length * 100;
 }
 
 bool FilesExists(string pathMergedXml, string pathExpectedXML)
